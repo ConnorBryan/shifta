@@ -7,7 +7,8 @@
     "type-check:watch": "npm run type-check -- --watch",
     "build": "npm run build:types && npm run build:js",
     "build:types": "tsc --emitDeclarationOnly",
-    "build:js": "babel src --out-dir lib --extensions \".ts,.tsx\" --source-maps inline"
+    "build:js": "babel src --out-dir lib --extensions \".ts,.tsx\" --source-maps inline",
+    "game": "npm run build && node ./lib"
   },
   "devDependencies": {
     "@babel/cli": "^7.0.0",
@@ -17,5 +18,11 @@
     "@babel/preset-env": "^7.0.0",
     "@babel/preset-typescript": "^7.0.0",
     "typescript": "^3.0.3"
+  },
+  "dependencies": {
+    "@types/lodash.clamp": "^4.0.4",
+    "@types/lodash.clonedeep": "^4.5.4",
+    "lodash.clamp": "^4.0.3",
+    "lodash.clonedeep": "^4.5.0"
   }
 }
