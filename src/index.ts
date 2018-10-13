@@ -1,5 +1,9 @@
 import clamp from "lodash.clamp";
 import cloneDeep from "lodash.clonedeep";
+import generateUuid from "uuid/v4";
+import Chance from "chance";
+
+const chance = new Chance();
 
 /* === Types */
 
@@ -16,14 +20,32 @@ interface Tile {
   type: TileTypes;
 }
 
+enum EnemyTypes {
+  Sentinel = 0
+}
+
+interface Enemy {
+  id: string;
+  type: EnemyTypes;
+  coordinates: _Coordinates;
+}
+
 interface GameState {
   active: boolean;
   ticks: number;
   grid: Grid;
   playerCoordinates: _Coordinates;
+  enemiesById: {
+    [id: string]: Enemy;
+  };
+  allEnemies: string[];
 }
 
 type _Coordinates = [number, number];
+
+interface OccupiedCoordinatesHash {
+  [coordinates: string]: true;
+}
 
 enum PlayerActions {
   Move = 0
@@ -34,7 +56,19 @@ interface PlayerMoved {
   payload: { direction: Directions };
 }
 
-type GameAction = PlayerMoved;
+type PlayerAction = PlayerMoved;
+
+enum EnemyActions {
+  Generate = 0
+}
+
+interface EnemyGenerated {
+  type: EnemyActions.Generate;
+}
+
+type EnemyAction = EnemyGenerated;
+
+type GameAction = PlayerAction | EnemyAction;
 
 enum Directions {
   North = 0,
@@ -55,11 +89,54 @@ const generateEmptyGrid = (rows: number, columns: number): Grid =>
     Array.from({ length: columns }, generateEmptyTile)
   );
 
+const getGridDimensions = (grid: Grid): GridDimensions => [
+  grid.length,
+  grid[0].length
+];
+
+const generateRandomCoordinates = (
+  gridDimensions: GridDimensions
+): _Coordinates => {
+  const [yMax, xMax] = gridDimensions;
+  return [
+    chance.integer({ min: 0, max: yMax - 1 }),
+    chance.integer({ min: 0, max: xMax - 1 })
+  ];
+};
+
+const selectAvailableCoordinates = (
+  occupiedCoordinates: _Coordinates[],
+  gridDimensions: GridDimensions
+): _Coordinates => {
+  const occupiedCoordinatesHash: OccupiedCoordinatesHash = occupiedCoordinates.reduce(
+    (prev: OccupiedCoordinatesHash, next) => {
+      prev[next.toString()] = true;
+      return prev;
+    },
+    {}
+  );
+  let chosenCoordinates = generateRandomCoordinates(gridDimensions);
+
+  while (occupiedCoordinatesHash[chosenCoordinates.toString()]) {
+    chosenCoordinates = generateRandomCoordinates(gridDimensions);
+  }
+
+  return chosenCoordinates;
+};
+
+const generateEnemy = (coordinates: _Coordinates): Enemy => ({
+  id: generateUuid(),
+  type: EnemyTypes.Sentinel,
+  coordinates
+});
+
 const generateNewGame = (): GameState => ({
   active: true,
   ticks: 0,
   grid: generateEmptyGrid(3, 3),
-  playerCoordinates: [0, 0]
+  playerCoordinates: [0, 0],
+  enemiesById: {},
+  allEnemies: []
 });
 
 const directionDifferences = {
@@ -99,17 +176,21 @@ const playerMovedEast = () => playerMoved(Directions.East);
 const playerMovedSouth = () => playerMoved(Directions.South);
 const playerMovedWest = () => playerMoved(Directions.West);
 
+const enemyGenerated = () => ({
+  type: EnemyActions.Generate
+});
+
 // Reducer
 const initialState: GameState = generateNewGame();
 
 const reducers = {
-  [PlayerActions.Move]: (state: GameState, action: GameAction): GameState => {
+  [PlayerActions.Move]: (state: GameState, action: PlayerMoved): GameState => {
     const { grid, playerCoordinates } = state;
     const {
       payload: { direction }
     } = action;
     const nextState = cloneDeep(state);
-    const dimensions: GridDimensions = [grid.length, grid[0].length];
+    const dimensions: GridDimensions = getGridDimensions(grid);
     const [y, x] = generateNextCoordinates(
       playerCoordinates,
       direction,
@@ -119,6 +200,27 @@ const reducers = {
     nextState.playerCoordinates = [y, x];
 
     return nextState;
+  },
+  [EnemyActions.Generate]: (
+    state: GameState,
+    action: EnemyGenerated
+  ): GameState => {
+    const { grid, playerCoordinates, enemiesById, allEnemies } = state;
+    const nextState = cloneDeep(state);
+    const offLimitCoordinates = allEnemies
+      .map(id => enemiesById[id].coordinates)
+      .concat(playerCoordinates);
+    const gridDimensions = getGridDimensions(grid);
+    const enemyCoordinates = selectAvailableCoordinates(
+      offLimitCoordinates,
+      gridDimensions
+    );
+    const enemy = generateEnemy(enemyCoordinates);
+
+    nextState.enemiesById[enemy.id] = enemy;
+    nextState.allEnemies.push(enemy.id);
+
+    return nextState;
   }
 };
 
@@ -126,7 +228,7 @@ const reduce = (
   state: GameState = initialState,
   action: GameAction
 ): GameState => {
-  const nextState = reducers[action.type];
+  const nextState = (reducers as any)[action.type];
   return nextState ? nextState(state, action) : state;
 };
 // Selectors
@@ -140,10 +242,6 @@ const initializeGame = (): void => {
   const updateActiveState = (action: GameAction): void => {
     activeState = reduce(activeState, action);
   };
-
-  console.log("\n\n\n", "before", activeState.playerCoordinates, "\n\n\n");
-  updateActiveState(playerMovedEast());
-  console.log("\n\n\n", "after", activeState.playerCoordinates, "\n\n\n");
 };
 //#endregion
 
