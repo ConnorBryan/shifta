@@ -11,6 +11,11 @@ type Grid = Tile[][];
 
 type GridDimensions = [number, number];
 
+interface GridData {
+  id: string;
+  layout: Grid;
+}
+
 enum TileTypes {
   Empty = 0,
   Wall = 1
@@ -27,21 +32,25 @@ enum EnemyTypes {
 interface Enemy {
   id: string;
   type: EnemyTypes;
-  coordinates: _Coordinates;
+  coordinates: GridCoordinates;
 }
 
 interface GameState {
   active: boolean;
   ticks: number;
-  grid: Grid;
-  playerCoordinates: _Coordinates;
+  playerCoordinates: GridCoordinates;
   enemiesById: {
     [id: string]: Enemy;
   };
   allEnemies: string[];
+  gridsById: {
+    [id: string]: GridData;
+  };
+  allGrids: string[];
+  activeGrid: string;
 }
 
-type _Coordinates = [number, number];
+type GridCoordinates = [number, number];
 
 interface OccupiedCoordinatesHash {
   [coordinates: string]: true;
@@ -96,7 +105,7 @@ const getGridDimensions = (grid: Grid): GridDimensions => [
 
 const generateRandomCoordinates = (
   gridDimensions: GridDimensions
-): _Coordinates => {
+): GridCoordinates => {
   const [yMax, xMax] = gridDimensions;
   return [
     chance.integer({ min: 0, max: yMax - 1 }),
@@ -105,9 +114,9 @@ const generateRandomCoordinates = (
 };
 
 const selectAvailableCoordinates = (
-  occupiedCoordinates: _Coordinates[],
+  occupiedCoordinates: GridCoordinates[],
   gridDimensions: GridDimensions
-): _Coordinates => {
+): GridCoordinates => {
   const occupiedCoordinatesHash: OccupiedCoordinatesHash = occupiedCoordinates.reduce(
     (prev: OccupiedCoordinatesHash, next) => {
       prev[next.toString()] = true;
@@ -124,20 +133,32 @@ const selectAvailableCoordinates = (
   return chosenCoordinates;
 };
 
-const generateEnemy = (coordinates: _Coordinates): Enemy => ({
+const generateEnemy = (coordinates: GridCoordinates): Enemy => ({
   id: generateUuid(),
   type: EnemyTypes.Sentinel,
   coordinates
 });
 
-const generateNewGame = (): GameState => ({
-  active: true,
-  ticks: 0,
-  grid: generateEmptyGrid(3, 3),
-  playerCoordinates: [0, 0],
-  enemiesById: {},
-  allEnemies: []
-});
+const generateNewGame = (): GameState => {
+  const initialGridId = generateUuid();
+  const initialGrid: GridData = {
+    id: initialGridId,
+    layout: generateEmptyGrid(5, 5)
+  };
+
+  return {
+    active: true,
+    ticks: 0,
+    playerCoordinates: [0, 0],
+    enemiesById: {},
+    allEnemies: [],
+    gridsById: {
+      [initialGridId]: initialGrid
+    },
+    allGrids: [initialGridId],
+    activeGrid: initialGridId
+  };
+};
 
 const directionDifferences = {
   [Directions.North]: [-1, 0],
@@ -147,10 +168,10 @@ const directionDifferences = {
 };
 
 const generateNextCoordinates = (
-  coordinates: _Coordinates,
+  coordinates: GridCoordinates,
   direction: Directions,
   dimensions: GridDimensions
-): _Coordinates => {
+): GridCoordinates => {
   const [y, x] = coordinates;
   const [yDifference, xDifference] = directionDifferences[direction];
   const [yMax, xMax] = dimensions;
@@ -185,7 +206,8 @@ const initialState: GameState = generateNewGame();
 
 const reducers = {
   [PlayerActions.Move]: (state: GameState, action: PlayerMoved): GameState => {
-    const { grid, playerCoordinates } = state;
+    const { playerCoordinates } = state;
+    const grid = getActiveGridLayout(state);
     const {
       payload: { direction }
     } = action;
@@ -205,7 +227,9 @@ const reducers = {
     state: GameState,
     action: EnemyGenerated
   ): GameState => {
-    const { grid, playerCoordinates, enemiesById, allEnemies } = state;
+    const { playerCoordinates } = state;
+    const grid = getActiveGridLayout(state);
+    const { enemiesById, allEnemies } = getEnemyData(state);
     const nextState = cloneDeep(state);
     const offLimitCoordinates = allEnemies
       .map(id => enemiesById[id].coordinates)
@@ -232,7 +256,21 @@ const reduce = (
   return nextState ? nextState(state, action) : state;
 };
 // Selectors
+const getEnemyData = ({ enemiesById, allEnemies }: GameState) => ({
+  enemiesById,
+  allEnemies
+});
 
+const getGridData = ({ gridsById, allGrids, activeGrid }: GameState) => ({
+  gridsById,
+  allGrids,
+  activeGrid
+});
+
+const getActiveGridLayout = (state: GameState): Grid => {
+  const { gridsById, activeGrid } = getGridData(state);
+  return gridsById[activeGrid].layout;
+};
 //#endregion
 
 //#region Game
@@ -242,6 +280,13 @@ const initializeGame = (): void => {
   const updateActiveState = (action: GameAction): void => {
     activeState = reduce(activeState, action);
   };
+
+  console.log(
+    "\n\n\n",
+    "activeState.gridsById[activeState.activeGrid]",
+    activeState.gridsById[activeState.activeGrid],
+    "\n\n\n"
+  );
 };
 //#endregion
 
