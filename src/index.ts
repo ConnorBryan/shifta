@@ -1,15 +1,27 @@
+import fs, { write } from "fs";
+import { promisify } from "util";
 import clamp from "lodash.clamp";
 import cloneDeep from "lodash.clonedeep";
+import difference from "lodash.difference";
 import generateUuid from "uuid/v4";
 import Chance from "chance";
 
 const chance = new Chance();
+const writeToFile = promisify(fs.writeFile);
 
 /* === Types */
 
 type Grid = Tile[][];
 
 type GridDimensions = [number, number];
+
+enum PlaneKeys {
+  Mortal = 0,
+  Fire = 1,
+  Water = 2,
+  Earth = 3,
+  Wind = 4
+}
 
 interface GridData {
   id: string;
@@ -23,6 +35,7 @@ enum TileTypes {
 
 interface Tile {
   type: TileTypes;
+  planeKey: PlaneKeys | null;
 }
 
 enum EnemyTypes {
@@ -89,8 +102,21 @@ enum Directions {
 /* === Logic */
 
 //#region Utils
+const outputGameToFile = (game: GameState): void => {
+  writeToFile("data.json", JSON.stringify(game, null, 2));
+};
+
+const allPlaneKeys: PlaneKeys[] = [
+  PlaneKeys.Mortal,
+  PlaneKeys.Fire,
+  PlaneKeys.Water,
+  PlaneKeys.Earth,
+  PlaneKeys.Wind
+];
+
 const generateEmptyTile = (): Tile => ({
-  type: TileTypes.Empty
+  type: TileTypes.Empty,
+  planeKey: null
 });
 
 const generateEmptyGrid = (rows: number, columns: number): Grid =>
@@ -139,24 +165,53 @@ const generateEnemy = (coordinates: GridCoordinates): Enemy => ({
   coordinates
 });
 
+const generatePlaneKey = (...unavailablePlaneKeys: PlaneKeys[]): PlaneKeys => {
+  const availablePlaneKeys = difference(allPlaneKeys, unavailablePlaneKeys);
+
+  if (availablePlaneKeys.length === 0) {
+    throw new Error("No plane keys remain.");
+  }
+
+  return availablePlaneKeys[
+    chance.integer({ min: 0, max: availablePlaneKeys.length - 1 })
+  ];
+};
+
 const generateNewGame = (): GameState => {
-  const initialGridId = generateUuid();
-  const initialGrid: GridData = {
-    id: initialGridId,
+  // Mortal
+  const mortalGridId = generateUuid();
+  const mortalGridData: GridData = {
+    id: mortalGridId,
     layout: generateEmptyGrid(5, 5)
   };
+  const mortalGridDimensions = getGridDimensions(mortalGridData.layout);
+  const mortalPlaneKey = generatePlaneKey(PlaneKeys.Mortal);
+  const [initialPlayerY, initialPlayerX] = selectAvailableCoordinates(
+    [],
+    mortalGridDimensions
+  );
+  const [mortalPlaneKeyY, mortalPlaneKeyX] = selectAvailableCoordinates(
+    [[initialPlayerY, initialPlayerX]],
+    mortalGridDimensions
+  );
+
+  mortalGridData.layout[mortalPlaneKeyY][
+    mortalPlaneKeyX
+  ].planeKey = mortalPlaneKey;
+
+  // Rest
 
   return {
     active: true,
     ticks: 0,
-    playerCoordinates: [0, 0],
+    playerCoordinates: [initialPlayerY, initialPlayerX],
     enemiesById: {},
     allEnemies: [],
     gridsById: {
-      [initialGridId]: initialGrid
+      [mortalGridId]: mortalGridData
     },
-    allGrids: [initialGridId],
-    activeGrid: initialGridId
+    allGrids: [mortalGridId],
+    activeGrid: mortalGridId
   };
 };
 
@@ -281,12 +336,9 @@ const initializeGame = (): void => {
     activeState = reduce(activeState, action);
   };
 
-  console.log(
-    "\n\n\n",
-    "activeState.gridsById[activeState.activeGrid]",
-    activeState.gridsById[activeState.activeGrid],
-    "\n\n\n"
-  );
+  outputGameToFile(activeState);
+
+  console.info("Done.");
 };
 //#endregion
 
