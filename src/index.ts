@@ -15,7 +15,7 @@ type Grid = Tile[][];
 
 type GridDimensions = [number, number];
 
-enum PlaneKeys {
+enum PlaneType {
   Mortal = 0,
   Fire = 1,
   Water = 2,
@@ -25,26 +25,27 @@ enum PlaneKeys {
 
 interface GridData {
   id: string;
+  type: PlaneType;
   layout: Grid;
 }
 
-enum TileTypes {
+enum TileType {
   Empty = 0,
   Wall = 1
 }
 
 interface Tile {
-  type: TileTypes;
-  planeKey: PlaneKeys | null;
+  type: TileType;
+  planeKey: PlaneType | null;
 }
 
-enum EnemyTypes {
+enum EnemyType {
   Sentinel = 0
 }
 
 interface Enemy {
   id: string;
-  type: EnemyTypes;
+  type: EnemyType;
   coordinates: GridCoordinates;
 }
 
@@ -106,16 +107,16 @@ const outputGameToFile = (game: GameState): void => {
   writeToFile("data.json", JSON.stringify(game, null, 2));
 };
 
-const allPlaneKeys: PlaneKeys[] = [
-  PlaneKeys.Mortal,
-  PlaneKeys.Fire,
-  PlaneKeys.Water,
-  PlaneKeys.Earth,
-  PlaneKeys.Wind
+const allPlaneKeys: PlaneType[] = [
+  PlaneType.Mortal,
+  PlaneType.Fire,
+  PlaneType.Water,
+  PlaneType.Earth,
+  PlaneType.Wind
 ];
 
 const generateEmptyTile = (): Tile => ({
-  type: TileTypes.Empty,
+  type: TileType.Empty,
   planeKey: null
 });
 
@@ -161,11 +162,11 @@ const selectAvailableCoordinates = (
 
 const generateEnemy = (coordinates: GridCoordinates): Enemy => ({
   id: generateUuid(),
-  type: EnemyTypes.Sentinel,
+  type: EnemyType.Sentinel,
   coordinates
 });
 
-const generatePlaneKey = (...unavailablePlaneKeys: PlaneKeys[]): PlaneKeys => {
+const generatePlaneKey = (...unavailablePlaneKeys: PlaneType[]): PlaneType => {
   const availablePlaneKeys = difference(allPlaneKeys, unavailablePlaneKeys);
 
   if (availablePlaneKeys.length === 0) {
@@ -182,10 +183,11 @@ const generateNewGame = (): GameState => {
   const mortalGridId = generateUuid();
   const mortalGridData: GridData = {
     id: mortalGridId,
+    type: PlaneType.Mortal,
     layout: generateEmptyGrid(5, 5)
   };
   const mortalGridDimensions = getGridDimensions(mortalGridData.layout);
-  const mortalPlaneKey = generatePlaneKey(PlaneKeys.Mortal);
+  const mortalPlaneKey = generatePlaneKey(PlaneType.Mortal);
   const [initialPlayerY, initialPlayerX] = selectAvailableCoordinates(
     [],
     mortalGridDimensions
