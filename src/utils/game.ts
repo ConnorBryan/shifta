@@ -2,6 +2,9 @@ import Chance from "chance";
 import generateUuid from "uuid/v4";
 import difference from "lodash.difference";
 
+import reducer from "../features";
+import { outputGameToFile } from "./etc";
+
 import {
   generateEmptyGrid,
   getGridDimensions,
@@ -103,4 +106,16 @@ export const generateNewGame = (): GameState => {
     allGrids,
     activeGrid
   };
+};
+
+export const initializeGame = (): void => {
+  let activeState = generateNewGame();
+
+  const updateActiveState = (action: GameAction): void => {
+    activeState = reducer(activeState, action);
+  };
+
+  outputGameToFile(activeState);
+
+  console.info("Done.");
 };

@@ -56,4 +56,11 @@ declare interface EnemyGenerated {
 
 declare type EnemyAction = EnemyGenerated;
 
-declare type GameAction = PlayerAction | EnemyAction;
+declare type GameAction = {
+  type: string;
+  payload: any;
+};
+
+declare interface GameReducer {
+  [action: string]: (state: GameState, action: GameAction) => GameState;
+}

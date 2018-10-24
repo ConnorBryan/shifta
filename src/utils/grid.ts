@@ -1,14 +1,9 @@
 import Chance from "chance";
 import clamp from "lodash.clamp";
 
-const chance = new Chance();
+import { Directions } from "./movement";
 
-export enum Directions {
-  North = 0,
-  East = 1,
-  South = 2,
-  West = 3
-}
+const chance = new Chance();
 
 export enum TileType {
   Empty = 0,
