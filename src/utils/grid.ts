@@ -1,33 +1,54 @@
 import Chance from "chance";
 import clamp from "lodash.clamp";
+import cloneDeep from "lodash.clonedeep";
 
+import * as config from "../config";
 import { Directions } from "./movement";
 
 const chance = new Chance();
 
 export enum TileType {
-  Empty = 0,
-  Wall = 1
+  Empty = "EMPTY",
+  Wall = "WALL"
 }
 
-export const directionDifferences = {
+export const directionDifferences: {
+  [direction: string]: GridCoordinates;
+} = {
   [Directions.North]: [-1, 0],
   [Directions.East]: [0, 1],
   [Directions.South]: [1, 0],
   [Directions.West]: [0, -1]
 };
 
-export const getRandomEntry = (array: any[]): any =>
-  array[chance.integer({ min: 0, max: array.length - 1 })];
+export const reverseDirections: { [direction: string]: Directions } = {
+  [Directions.North]: Directions.South,
+  [Directions.East]: Directions.West,
+  [Directions.South]: Directions.North,
+  [Directions.West]: Directions.East
+};
 
-export const generateEmptyTile = (): Tile => ({
-  type: TileType.Empty,
+export const allDirections: Directions[] = [
+  Directions.North,
+  Directions.East,
+  Directions.South,
+  Directions.West
+];
+
+export const getRandomEntry = (array: any[]): any =>
+  array[chance.integer({ min: 0, max: Math.max(array.length - 1, 0) })];
+
+export const generateTile = (type: TileType): Tile => ({
+  type,
   planeKey: null
 });
 
-export const generateEmptyGrid = (rows: number, columns: number): Grid =>
+export const generateEmptyTile = () => generateTile(TileType.Empty);
+export const generateWallTile = () => generateTile(TileType.Wall);
+
+export const generateInitialGrid = (rows: number, columns: number): Grid =>
   Array.from({ length: rows }, () =>
-    Array.from({ length: columns }, generateEmptyTile)
+    Array.from({ length: columns }, generateWallTile)
   );
 
 export const getGridDimensions = (grid: Grid): GridDimensions => [
@@ -77,4 +98,136 @@ export const generateNextCoordinates = (
   const nextX = clamp(x + xDifference, 0, xMax - 1);
 
   return [nextY, nextX];
+};
+
+export const atLeastHalfOfGridIsEmpty = (grid: Grid): boolean => {
+  const gridSize = config.GRID_ROW_SIZE * config.GRID_COLUMN_SIZE;
+
+  let emptyCount = 0;
+
+  grid.forEach(row =>
+    row.forEach(column => {
+      if (column.type === TileType.Empty) {
+        emptyCount++;
+      }
+    })
+  );
+
+  return emptyCount / gridSize >= 0.5;
+};
+
+export const createTunnels = (grid: Grid, start: GridCoordinates) => {
+  const [startY, startX] = start;
+
+  let gridWithTunnels = cloneDeep(grid);
+  let tunnelsRemaining = chance.integer({
+    min: config.MIN_TUNNEL_COUNT,
+    max: config.MAX_TUNNEL_COUNT
+  });
+  let activeCoordinates = [startY, startX];
+  let lastDirection;
+
+  do {
+    // Select a random direction.
+    const direction = getRandomEntry(allDirections);
+
+    // Make sure it's not a) the reverse direction or b) the prior direction.
+    const reverseDirection = lastDirection && reverseDirections[lastDirection];
+
+    if (direction === reverseDirection || direction === lastDirection) {
+      continue;
+    }
+
+    lastDirection = direction;
+
+    // Generate a random length of the tunnel.
+    let tunnelLength = chance.integer({
+      min: 1,
+      max: config.MAX_TUNNEL_LENGTH
+    });
+
+    // North
+    if (direction === Directions.North) {
+      let [coordinateToChange, staticCoordinate] = activeCoordinates;
+      let tunneledDistance = 0;
+
+      // Using the correct tunnel length, change all relevant tiles to empty.
+      while (coordinateToChange > 0 && tunneledDistance < tunnelLength) {
+        coordinateToChange--;
+        tunneledDistance++;
+
+        gridWithTunnels[coordinateToChange][
+          staticCoordinate
+        ] = generateEmptyTile();
+      }
+
+      activeCoordinates = [coordinateToChange, staticCoordinate];
+    }
+
+    // East
+    if (direction === Directions.East) {
+      let [staticCoordinate, coordinateToChange] = activeCoordinates;
+      let tunneledDistance = 0;
+
+      while (
+        coordinateToChange < gridWithTunnels[0].length - 1 &&
+        tunneledDistance < tunnelLength
+      ) {
+        coordinateToChange++;
+        tunneledDistance++;
+
+        gridWithTunnels[staticCoordinate][
+          coordinateToChange
+        ] = generateEmptyTile();
+      }
+
+      activeCoordinates = [staticCoordinate, coordinateToChange];
+    }
+
+    // South
+    if (direction === Directions.South) {
+      let [coordinateToChange, staticCoordinate] = activeCoordinates;
+      let tunneledDistance = 0;
+
+      // Using the correct tunnel length, change all relevant tiles to empty.
+      while (
+        coordinateToChange < gridWithTunnels[0].length - 1 &&
+        tunneledDistance < tunnelLength
+      ) {
+        coordinateToChange++;
+        tunneledDistance++;
+
+        gridWithTunnels[coordinateToChange][
+          staticCoordinate
+        ] = generateEmptyTile();
+      }
+
+      activeCoordinates = [coordinateToChange, staticCoordinate];
+    }
+
+    // West
+    if (direction === Directions.West) {
+      let [staticCoordinate, coordinateToChange] = activeCoordinates;
+      let tunneledDistance = 0;
+
+      while (coordinateToChange > 0 && tunneledDistance < tunnelLength) {
+        coordinateToChange--;
+        tunneledDistance++;
+
+        gridWithTunnels[staticCoordinate][
+          coordinateToChange
+        ] = generateEmptyTile();
+      }
+
+      activeCoordinates = [staticCoordinate, coordinateToChange];
+    }
+
+    tunnelsRemaining--;
+  } while (tunnelsRemaining);
+
+  if (!atLeastHalfOfGridIsEmpty(gridWithTunnels)) {
+    gridWithTunnels = createTunnels(grid, start);
+  }
+
+  return gridWithTunnels;
 };

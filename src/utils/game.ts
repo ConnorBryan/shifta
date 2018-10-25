@@ -2,14 +2,15 @@ import Chance from "chance";
 import generateUuid from "uuid/v4";
 import difference from "lodash.difference";
 
-import reducer from "../features";
-import { outputGameToFile } from "./etc";
-
+import * as config from "../config";
+import reducer, { getActiveGridLayout } from "../features";
+import { outputGameToFile, drawAsciiGrid } from "./etc";
 import {
-  generateEmptyGrid,
+  generateInitialGrid,
   getGridDimensions,
   getRandomEntry,
-  selectAvailableCoordinates
+  selectAvailableCoordinates,
+  createTunnels
 } from "./grid";
 
 const chance = new Chance();
@@ -54,14 +55,22 @@ export const generateGrids = (
       const gridData = {
         id: generateUuid(),
         type: next,
-        layout: generateEmptyGrid(5, 5)
+        layout: generateInitialGrid(
+          config.GRID_ROW_SIZE,
+          config.GRID_COLUMN_SIZE
+        )
       };
       const [planeKeyY, planeKeyX] = selectAvailableCoordinates(
         next === PlaneType.Mortal ? [playerCoordinates] : [],
         getGridDimensions(gridData.layout)
       );
       const planeKey = getRandomEntry(difference(availablePlaneKeys, [next]));
+      const layoutWithTunnels = createTunnels(
+        gridData.layout,
+        playerCoordinates
+      );
 
+      gridData.layout = layoutWithTunnels;
       availablePlaneKeys = availablePlaneKeys.filter(key => key !== planeKey);
       gridData.layout[planeKeyY][planeKeyX].planeKey = planeKey;
 
@@ -116,6 +125,10 @@ export const initializeGame = (): void => {
   };
 
   outputGameToFile(activeState);
+
+  const layout = getActiveGridLayout(activeState);
+
+  drawAsciiGrid(layout);
 
   console.info("Done.");
 };
