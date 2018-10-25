@@ -116,6 +116,23 @@ export const atLeastHalfOfGridIsEmpty = (grid: Grid): boolean => {
   return emptyCount / gridSize >= 0.5;
 };
 
+export const getNeighboringTile = (
+  grid: Grid,
+  coordinates: GridCoordinates
+): GridCoordinates => {
+  const direction = getRandomEntry(allDirections);
+  const [yDifference, xDifference] = directionDifferences[direction];
+  const [yCurrent, xCurrent] = coordinates;
+  const neighboringTile: GridCoordinates = [
+    yCurrent + yDifference,
+    xCurrent + xDifference
+  ];
+  const [neighboringY, neighboringX] = neighboringTile;
+  const isValid = grid[neighboringY] && grid[neighboringY][neighboringX];
+
+  return isValid ? neighboringTile : getNeighboringTile(grid, coordinates);
+};
+
 export const createTunnels = (grid: Grid, start: GridCoordinates) => {
   const [startY, startX] = start;
 
@@ -159,6 +176,13 @@ export const createTunnels = (grid: Grid, start: GridCoordinates) => {
         gridWithTunnels[coordinateToChange][
           staticCoordinate
         ] = generateEmptyTile();
+
+        const [neighboringY, neighboringX] = getNeighboringTile(
+          gridWithTunnels,
+          [coordinateToChange, staticCoordinate]
+        );
+
+        gridWithTunnels[neighboringY][neighboringX] = generateEmptyTile();
       }
 
       activeCoordinates = [coordinateToChange, staticCoordinate];
@@ -179,6 +203,13 @@ export const createTunnels = (grid: Grid, start: GridCoordinates) => {
         gridWithTunnels[staticCoordinate][
           coordinateToChange
         ] = generateEmptyTile();
+
+        const [neighboringY, neighboringX] = getNeighboringTile(
+          gridWithTunnels,
+          [staticCoordinate, coordinateToChange]
+        );
+
+        gridWithTunnels[neighboringY][neighboringX] = generateEmptyTile();
       }
 
       activeCoordinates = [staticCoordinate, coordinateToChange];
@@ -200,6 +231,13 @@ export const createTunnels = (grid: Grid, start: GridCoordinates) => {
         gridWithTunnels[coordinateToChange][
           staticCoordinate
         ] = generateEmptyTile();
+
+        const [neighboringY, neighboringX] = getNeighboringTile(
+          gridWithTunnels,
+          [coordinateToChange, staticCoordinate]
+        );
+
+        gridWithTunnels[neighboringY][neighboringX] = generateEmptyTile();
       }
 
       activeCoordinates = [coordinateToChange, staticCoordinate];
@@ -217,6 +255,13 @@ export const createTunnels = (grid: Grid, start: GridCoordinates) => {
         gridWithTunnels[staticCoordinate][
           coordinateToChange
         ] = generateEmptyTile();
+
+        const [neighboringY, neighboringX] = getNeighboringTile(
+          gridWithTunnels,
+          [staticCoordinate, coordinateToChange]
+        );
+
+        gridWithTunnels[neighboringY][neighboringX] = generateEmptyTile();
       }
 
       activeCoordinates = [staticCoordinate, coordinateToChange];
