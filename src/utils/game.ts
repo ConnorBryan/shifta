@@ -3,7 +3,10 @@ import generateUuid from "uuid/v4";
 import difference from "lodash.difference";
 
 import * as config from "../config";
-import reducer, { getActiveGridLayout } from "../features";
+import reducer, {
+  getActiveGridLayout,
+  getPlayerCoordinates
+} from "../features";
 import { outputGameToFile, drawAsciiGrid } from "./etc";
 import {
   generateInitialGrid,
@@ -97,7 +100,7 @@ export const generateGrids = (
 export const generateNewGame = (): GameState => {
   const [initialPlayerY, initialPlayerX] = selectAvailableCoordinates(
     [],
-    [5, 5]
+    [config.GRID_ROW_SIZE, config.GRID_COLUMN_SIZE]
   );
 
   const { gridsById, allGrids, activeGrid } = generateGrids([
@@ -127,8 +130,9 @@ export const initializeGame = (): void => {
   outputGameToFile(activeState);
 
   const layout = getActiveGridLayout(activeState);
+  const playerCoordinates = getPlayerCoordinates(activeState);
 
-  drawAsciiGrid(layout);
+  drawAsciiGrid(layout, playerCoordinates);
 
   console.info("Done.");
 };

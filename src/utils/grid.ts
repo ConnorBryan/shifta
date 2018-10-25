@@ -274,5 +274,8 @@ export const createTunnels = (grid: Grid, start: GridCoordinates) => {
     gridWithTunnels = createTunnels(grid, start);
   }
 
+  // Free up a space for the player.
+  grid[startY][startX] = generateEmptyTile();
+
   return gridWithTunnels;
 };

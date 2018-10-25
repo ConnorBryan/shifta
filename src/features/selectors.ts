@@ -17,3 +17,6 @@ export const getActiveGridLayout = (state: GameState): Grid => {
   const { gridsById, activeGrid } = getGridData(state);
   return gridsById[activeGrid].layout;
 };
+
+export const getPlayerCoordinates = (state: GameState): GridCoordinates =>
+  state.playerCoordinates;

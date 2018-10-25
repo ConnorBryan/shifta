@@ -9,20 +9,27 @@ export const outputGameToFile = (game: GameState): void => {
   writeToFile("data.json", JSON.stringify(game, null, 2));
 };
 
-export const drawAsciiGrid = (layout: Grid): void => {
+export const drawAsciiGrid = (
+  layout: Grid,
+  [playerY, playerX]: GridCoordinates
+): void => {
   let gridString = "";
 
-  layout.forEach(row => {
-    row.forEach(column => {
-      switch (column.type) {
-        case TileType.Empty:
-          gridString += "_ ";
-          break;
-        case TileType.Wall:
-          gridString += "X ";
-          break;
-        default:
-          break;
+  layout.forEach((row, rowIndex) => {
+    row.forEach((column, columnIndex) => {
+      if (rowIndex === playerY && columnIndex === playerX) {
+        gridString += "O ";
+      } else {
+        switch (column.type) {
+          case TileType.Empty:
+            gridString += "_ ";
+            break;
+          case TileType.Wall:
+            gridString += "X ";
+            break;
+          default:
+            break;
+        }
       }
     });
 
