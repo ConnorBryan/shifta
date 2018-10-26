@@ -5,7 +5,11 @@ import difference from "lodash.difference";
 import * as config from "../config";
 import reducer, {
   getActiveGridLayout,
-  getPlayerCoordinates
+  getPlayerCoordinates,
+  playerMovedNorth,
+  playerMovedEast,
+  playerMovedSouth,
+  playerMovedWest
 } from "../features";
 import { outputGameToFile, drawAsciiGrid } from "./etc";
 import {
@@ -120,19 +124,38 @@ export const generateNewGame = (): GameState => {
   };
 };
 
-export const initializeGame = (): void => {
+export const initializeGame = (): Promise<void> => {
   let activeState = generateNewGame();
 
   const updateActiveState = (action: GameAction): void => {
     activeState = reducer(activeState, action);
   };
 
-  outputGameToFile(activeState);
+  let times = 0;
 
-  const layout = getActiveGridLayout(activeState);
-  const playerCoordinates = getPlayerCoordinates(activeState);
+  return new Promise(resolve => {
+    setInterval(() => {
+      const movements = [
+        playerMovedNorth(),
+        playerMovedEast(),
+        playerMovedSouth(),
+        playerMovedWest()
+      ];
+      const movement = getRandomEntry(movements);
 
-  drawAsciiGrid(layout, playerCoordinates);
+      updateActiveState(movement);
 
-  console.info("Done.");
+      const layout = getActiveGridLayout(activeState);
+      const playerCoordinates = getPlayerCoordinates(activeState);
+
+      outputGameToFile(activeState);
+      drawAsciiGrid(layout, playerCoordinates);
+
+      times++;
+
+      if (times === 20) {
+        resolve();
+      }
+    }, 200);
+  });
 };
